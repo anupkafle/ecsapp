@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🚀 Hello from my-app on Amazon ECS!"
+    return "🚀 Hello from my-app on Amazon ECS using Github actions auto deployment!"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
