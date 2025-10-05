@@ -1,0 +1,64 @@
+permissions:
+  contents: read
+  id-token: write # required for OIDC
+
+steps:
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::<YOUR_ACCOUNT_ID>:role/<YOUR_ROLE_NAME>
+      aws-region: us-east-1
+name: Deploy my-app to Amazon ECS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write    # needed for OIDC
+
+    steps:
+      # Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::943653636298:role/GitHub_Actions_Role
+          aws-region: us-east-1
+
+      # Login to Amazon ECR
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        run: |
+          IMAGE_URI=${{ steps.ecr.outputs.registry }}/my-app:${{ github.sha }}
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+
+      # Render new ECS task definition with this image
+      - name: Render Amazon ECS task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs-task-def.json
+          container-name: my-app
+          image: ${{ steps.ecr.outputs.registry }}/my-app:${{ github.sha }}
+
+      # Deploy new task definition to ECS service
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: my-app-service
+          cluster: my-app-cluster
+          wait-for-service-stability: true
